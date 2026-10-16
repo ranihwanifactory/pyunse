@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+import random
 import streamlit as st
 from google import genai
 
@@ -7,14 +8,24 @@ API_KEY = "AQ.Ab8RN6LcpBwAaf8Br3PlrD0ZXRheaP1s9lO7-nEB8Jh5iL9QGQ"
 
 # 페이지 설정
 st.set_page_config(
-    page_title="✨ 오늘의 AI 운세 & 궁합", page_icon="🔮", layout="centered"
+    page_title="✨ AI 운세 & 궁합 & 로또", page_icon="🔮", layout="centered"
 )
 
-st.title("🔮 AI 실시간 운세 & 궁합 서비스")
-st.write("오늘의 운세를 확인하거나, 소중한 인연과의 궁합을 확인해보세요!")
+st.title("🔮 AI 실시간 운세 & 궁합 & 로또 생성기")
+st.write(
+    "오늘의 운세를 보고, 소중한 인연과의 궁합을 확인한 뒤 행운의 로또 번호도"
+    " 뽑아보세요!"
+)
 
-# 상단 탭 메뉴 생성 (1. 오늘의 운세 / 2. 운명적 궁합 보기)
-tab1, tab2 = st.tabs(["✨ 오늘의 운세", "💕 AI 운명 궁합 보기"])
+# 상단 탭 메뉴 생성 (1. 오늘의 운세 / 2. 운명적 궁합 보기 / 3. 나만의 로또 번호)
+tab1, tab2, tab3 = st.tabs(
+    ["✨ 오늘의 운세", "💕 AI 운명 궁합 보기", "🍀 나만의 로또 번호 생성기"]
+)
+
+# 공통 날짜 범위 (100년 전부터 오늘까지)
+today = date.today()
+min_birth_date = today - timedelta(days=365 * 100)
+
 
 # ==================== [탭 1] 오늘의 운세 ====================
 with tab1:
@@ -25,8 +36,6 @@ with tab1:
     with col1:
       name = st.text_input("이름 또는 닉네임", placeholder="예: 김진환")
     with col2:
-      today = date.today()
-      min_birth_date = today - timedelta(days=365 * 100)
       birth_date = st.date_input(
           "생년월일",
           value=date(1980, 11, 21),
@@ -89,6 +98,7 @@ with tab1:
 
       except Exception as e:
         st.error(f"오류가 발생했습니다: {e}")
+
 
 # ==================== [탭 2] AI 운명 궁합 보기 ====================
 with tab2:
@@ -167,6 +177,95 @@ with tab2:
         st.success("🎉 궁합 분석이 완료되었습니다!")
         st.markdown("---")
         st.markdown(compat_response.text)
+
+      except Exception as e:
+        st.error(f"오류가 발생했습니다: {e}")
+
+
+# ==================== [탭 3] 나만의 로또 번호 생성기 ====================
+with tab3:
+  st.subheader("🍀 AI 맞춤 로또 번호 생성기")
+  st.write(
+      "이름과 생년월일의 기운을 담아, AI가 특별한 로또 번호 조합을"
+      " 선물해드립니다!"
+  )
+
+  with st.form("lotto_form"):
+    col1, col2 = st.columns(2)
+    with col1:
+      lotto_name = st.text_input("이름 또는 닉네임", placeholder="예: 김진환")
+    with col2:
+      lotto_birth = st.date_input(
+          "생년월일",
+          value=date(1980, 11, 21),
+          min_value=min_birth_date,
+          max_value=today,
+          key="lotto_birth",
+      )
+
+    lotto_style = st.selectbox(
+        "로또 번호 추출 스타일",
+        [
+            "🔮 AI 기운 집중형 (사주/별자리 맞춤 번호)",
+            "🔥 대박 재물운 집중형",
+            "🎲 순수 행운 무작위형",
+        ],
+    )
+
+    submit_lotto = st.form_submit_button(label="🎰 행운의 로또 번호 조합하기")
+
+  if submit_lotto:
+    if API_KEY == "여기에_본인의_API_KEY를_입력하세요" or not API_KEY:
+      st.error(
+          "⚠️ 코드 상단의 `API_KEY` 변수에 유효한 Google AI Studio API Key를"
+          " 입력해주세요!"
+      )
+    elif not lotto_name:
+      st.warning("⚠️ 이름을 입력해주세요.")
+    else:
+      try:
+        client = genai.Client(api_key=API_KEY)
+
+        # 1. 파이썬 자체에서 수학적 무작위 로또 번호 5세트 생성 (1~45 중 6개씩)
+        random_sets = []
+        for _ in range(5):
+          nums = sorted(random.sample(range(1, 46), 6))
+          random_sets.append(nums)
+
+        # 2. AI에게 사용자 정보를 활용한 맞춤 번호 추천 및 해설 프롬프트 작성
+        lotto_prompt = f"""
+                당신은 재치 있고 영감 넘치는 로또 번호 추천 도사입니다.
+                다음 사용자의 정보를 바탕으로 1부터 45 사이의 수 중 6개로 이루어진 로또 번호 조합 5게임을 추천해주고, 각 게임별 의미와 오늘의 재물운 조언을 들려주세요.
+                
+                - 사용자: {lotto_name}
+                - 생년월일: {lotto_birth}
+                - 스타일: {lotto_style}
+                - 오늘 날짜: {today.strftime('%Y년 %m월 %d일')}
+                
+                출력 형식:
+                - 5게임의 번호 (예: 1게임: [3, 12, 22, 27, 33, 41])
+                - 각 번호 조합에 대한 재치 있는 해설 및 오늘의 재물 기운 조언
+                - 마지막에 대박을 기원하는 유쾌한 응원 한마디!
+                """
+
+        with st.spinner("🍀 행운의 주파수를 맞추고 로또 번호를 조합 중입니다..."):
+          lotto_response = client.models.generate_content(
+              model="gemini-2.5-flash",
+              contents=lotto_prompt,
+          )
+
+        st.success("🎉 나만의 행운 로또 번호가 완성되었습니다!")
+        st.markdown("---")
+
+        # 화면에 깔끔하게 파이썬으로 뽑은 순수 무작위 번호도 카드 형태로 먼저 보여주기
+        st.markdown("### 🎲 시스템 추천 행운 번호 (5게임)")
+        for i, s_num in enumerate(random_sets, 1):
+          formatted_nums = ", ".join([f"`{n:02d}`" for n in s_num])
+          st.markdown(f"**{i}게임:** {formatted_nums}")
+
+        st.markdown("---")
+        st.markdown("### 📜 AI 도사의 맞춤 로또 해설 & 조언")
+        st.markdown(lotto_response.text)
 
       except Exception as e:
         st.error(f"오류가 발생했습니다: {e}")
